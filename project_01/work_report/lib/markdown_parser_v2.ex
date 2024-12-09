@@ -10,23 +10,7 @@ defmodule WorkReport.MarkdownParserV2 do
 
   @minutes_in_one_hour 60
 
-  defmodule InvalidMonthTitleError do
-    defexception [:message]
-
-    @impl true
-    def exception(month_title) do
-      %InvalidMonthTitleError{message: "Wrong month name given! Got: \"#{month_title}\""}
-    end
-  end
-
-  defmodule InvalidDayStringError do
-    defexception [:message]
-
-    @impl true
-    def exception(day_string) do
-      %InvalidDayStringError{message: "Invalid day string: #{day_string}"}
-    end
-  end
+  @type parser_error :: {:error, String.t(), context: term()}
 
   @impl Parser
   def parse_report(report, _opts \\ []) do
@@ -34,7 +18,7 @@ defmodule WorkReport.MarkdownParserV2 do
       report
       |> String.split("\n")
       |> Enum.reject(fn str -> str == "" end)
-      |> dbg()
+      |> Enum.map(&map_entity_string/1)
 
     # |> Stream.map(fn month_string -> String.split(month_string, "\n\n") end)
     # |> Enum.map(fn [month_string | day_string_list] ->
@@ -48,18 +32,30 @@ defmodule WorkReport.MarkdownParserV2 do
 
   def map_entity_string(str) do
     cond do
-      result = Regex.named_captures(~r/^#\s(?<month_title>\w+)$/, str) ->
-        result
+      %{"month_title" => title} = Regex.named_captures(~r/^#\s(?<month_title>\w+)$/, str) ->
+        %Month{number: get_month_number(title), title: title}
 
-      result = Regex.named_captures(~r/^##\s(?<number>\d+)\s(?<day_title>\w+)$/, str) ->
-        result
+      %{"number" => number, "day_title" => title} =
+          Regex.named_captures(~r/^##\s(?<number>\d+)\s(?<day_title>\w+)$/, str) ->
+        %Day{number: String.to_integer(number), title: title}
 
-      result =
+      %{"category" => category, "description" => description, "time_spent" => time_spent} =
           Regex.named_captures(
             ~r/^\[(?<category>\w+)\]\s(?<description>.+)\s\-\s(?<time_spent>(\d{0,2}h)?\s?(\d{0,2}m)?)$/,
             str
           ) ->
-        result
+        %Task{category: category, description: description, time_spent: parse_time(time_spent)}
+
+      true ->
+        {:error, "wrong_entity_fomat"}
+    end
+  end
+
+  @spec parse_month_string(month_string :: String.t()) :: Month.t() | parser_error()
+  def parse_month_string(month_string) do
+    case Regex.named_captures(~r/^#\s(?<month_title>\w+)$/, month_string) do
+      %{"month_title" => title} -> %Month{number: get_month_number(title), title: title}
+      nil -> {:error, "wrong_month_string_format", context: month_string}
     end
   end
 
@@ -82,19 +78,6 @@ defmodule WorkReport.MarkdownParserV2 do
     end
   end
 
-  @spec parse_month_string(full_month_string :: String.t()) :: Month.t()
-  def parse_month_string(full_month_string) do
-    regexp = ~r/^#\s(?<title>\w+)$/
-
-    case Regex.named_captures(regexp, full_month_string) do
-      %{"title" => title} ->
-        %Month{number: get_month_number(title), title: title}
-
-      nil ->
-        nil
-    end
-  end
-
   @spec parse_day(full_day_string :: binary()) :: Day.t()
   def parse_day(full_day_string) do
     [day_string | task_string_list] =
@@ -103,7 +86,7 @@ defmodule WorkReport.MarkdownParserV2 do
     parse_day_string(day_string) |> parse_task_list(task_string_list)
   end
 
-  @spec parse_day_string(day_string :: binary()) :: Day.t()
+  @spec parse_day_string(day_string :: binary()) :: Day.t() | parser_error()
   def parse_day_string(day_string) do
     regexp = ~r/^##\s(?<number>\d+)\s(?<title>\w+)$/
 
@@ -112,7 +95,7 @@ defmodule WorkReport.MarkdownParserV2 do
         %Day{number: String.to_integer(number), title: title}
 
       nil ->
-        raise InvalidDayStringError, day_string
+        {:error, "wrong_day_string_format", context: day_string}
     end
   end
 
@@ -123,18 +106,18 @@ defmodule WorkReport.MarkdownParserV2 do
     Map.put(day, :tasks, tasks)
   end
 
-  @spec parse_task(task :: binary()) :: Task.t()
+  @spec parse_task(task :: binary()) :: Task.t() | parser_error()
   def parse_task(task) do
     # Regexp to parse task string format: [Type] Some title - 1h 30m
     regexp =
       ~r/^\[(?<category>\w+)\]\s(?<description>.+)\s\-\s(?<time_spent>(\d{0,2}h)?\s?(\d{0,2}m)?)$/
 
     case Regex.named_captures(regexp, task) do
-      nil ->
-        nil
-
       %{"category" => category, "description" => description, "time_spent" => time_spent} ->
         %Task{category: category, description: description, time_spent: parse_time(time_spent)}
+
+      nil ->
+        {:error, "wrong_task_string_format", context: task}
     end
   end
 

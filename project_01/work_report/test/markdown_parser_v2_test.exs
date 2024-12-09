@@ -2,7 +2,6 @@ defmodule MarkdownParserV2Test do
   use ExUnit.Case
 
   alias WorkReport.MarkdownParserV2, as: MarkdownParser
-  alias WorkReport.MarkdownParserV2.{InvalidMonthTitleError, InvalidDayStringError}
   alias WorkReport.Model.{Day, Month, Task}
 
   import TestFixtures
@@ -44,6 +43,35 @@ defmodule MarkdownParserV2Test do
     end
   end
 
+  describe "parse_month_string" do
+    test "should parse correct month string" do
+      assert MarkdownParser.parse_month_string("# January") == %Month{
+               number: 1,
+               title: "January",
+               days: []
+             }
+
+      assert MarkdownParser.parse_month_string("# February") == %Month{
+               number: 2,
+               title: "February",
+               days: []
+             }
+
+      assert MarkdownParser.parse_month_string("# March") == %Month{
+               number: 3,
+               title: "March",
+               days: []
+             }
+    end
+
+    test "should return an error for invalid month string" do
+      invalid_month = "## January"
+
+      assert MarkdownParser.parse_month_string(invalid_month) ==
+               {:error, "wrong_month_string_format", context: invalid_month}
+    end
+  end
+
   describe "parse_task" do
     test "should parse a task" do
       assert MarkdownParser.parse_task("[SOME] Do something useful - 30m") == %Task{
@@ -53,9 +81,13 @@ defmodule MarkdownParserV2Test do
              }
     end
 
-    test "should return nil for invalid task" do
-      assert MarkdownParser.parse_task("[SOME] Do something useful - eff") == nil
-      assert MarkdownParser.parse_task("Some Do something useful - 30r") == nil
+    test "should return an error for invalid task" do
+      invalid_tasks = ["[SOME] Do something useful - eff", "Some Do something useful - 30r"]
+
+      for task <- invalid_tasks do
+        assert MarkdownParser.parse_task(task) ==
+                 {:error, "wrong_task_string_format", context: task}
+      end
     end
   end
 
@@ -68,10 +100,9 @@ defmodule MarkdownParserV2Test do
              }
     end
 
-    test "should raise an error for invalid day string" do
-      assert_raise InvalidDayStringError, "Invalid day string: some shit", fn ->
-        MarkdownParser.parse_day_string("some shit")
-      end
+    test "should return an error for invalid day string" do
+      assert MarkdownParser.parse_day_string("some shit") ==
+               {:error, "wrong_day_string_format", context: "some shit"}
     end
   end
 
@@ -94,34 +125,6 @@ defmodule MarkdownParserV2Test do
                  }
                ]
              }
-    end
-  end
-
-  describe "parse_month_string" do
-    test "should parse correct month string" do
-      assert MarkdownParser.parse_month_string("# January") == %Month{
-               number: 1,
-               title: "January",
-               days: []
-             }
-
-      assert MarkdownParser.parse_month_string("# February") == %Month{
-               number: 2,
-               title: "February",
-               days: []
-             }
-
-      assert MarkdownParser.parse_month_string("# March") == %Month{
-               number: 3,
-               title: "March",
-               days: []
-             }
-    end
-
-    test "should raise error for invalid month name" do
-      assert_raise InvalidMonthTitleError, "Wrong month name given! Got: \"Some\"", fn ->
-        MarkdownParser.parse_month_string("# Some")
-      end
     end
   end
 
