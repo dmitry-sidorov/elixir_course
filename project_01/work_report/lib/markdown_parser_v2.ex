@@ -11,43 +11,85 @@ defmodule WorkReport.MarkdownParserV2 do
   @minutes_in_one_hour 60
 
   @type parser_error :: {:error, String.t(), context: term()}
+  @type entity :: Month.t() | Day.t() | Task.t()
 
   @impl Parser
   def parse_report(report, _opts \\ []) do
     result =
       report
       |> String.split("\n")
-      |> Enum.reject(fn str -> str == "" end)
+      |> Stream.reject(fn str -> str == "" end)
       |> Enum.map(&map_entity_string/1)
-
-    # |> Stream.map(fn month_string -> String.split(month_string, "\n\n") end)
-    # |> Enum.map(fn [month_string | day_string_list] ->
-    #   month = parse_month_string(month_string)
-    #   days = day_string_list |> Enum.map(&parse_day/1)
-    #   Map.put(month, :days, days)
-    # end)
+      |> build_entity_list()
 
     {:ok, result}
   end
 
+  @spec build_entity_list(
+          entities :: [entity()],
+          acc :: [Month.t()],
+          poiter :: %{day: integer(), month: integer()}
+        ) :: [Month.t()]
+  def build_entity_list([], acc, _pointer), do: Enum.reverse(acc)
+
+  def build_entity_list([entity | rest_entities], acc \\ [], pointer \\ %{day: -1, month: -1}) do
+    case entity do
+      %Month{number: number} ->
+        build_entity_list(
+          rest_entities,
+          [entity | acc],
+          Map.put(pointer, :month, number)
+        )
+
+      %Day{number: number} ->
+        build_entity_list(
+          rest_entities,
+          update_in(
+            acc,
+            [Access.filter(fn item -> item.number == pointer.month end), :days],
+            &(&1 ++ [entity])
+          ),
+          Map.put(pointer, :day, number)
+        )
+
+      %Task{} ->
+        build_entity_list(
+          rest_entities,
+          update_in(
+            acc,
+            [
+              Access.filter(fn item -> item.number == pointer.month end),
+              :days,
+              Access.filter(fn item -> item.number == pointer.day end),
+              :tasks
+            ],
+            &(&1 ++ [entity])
+          ),
+          pointer
+        )
+
+      _ ->
+        build_entity_list(rest_entities, [{:error, "unprocessible_entity"} | acc], pointer)
+    end
+  end
+
+  @spec map_entity_string(str :: binary) :: entity() | parser_error()
   def map_entity_string(str) do
     cond do
-      %{"month_title" => title} = Regex.named_captures(~r/^#\s(?<month_title>\w+)$/, str) ->
-        %Month{number: get_month_number(title), title: title}
+      Regex.match?(~r/^#\s\w+$/, str) ->
+        parse_month_string(str)
 
-      %{"number" => number, "day_title" => title} =
-          Regex.named_captures(~r/^##\s(?<number>\d+)\s(?<day_title>\w+)$/, str) ->
-        %Day{number: String.to_integer(number), title: title}
+      Regex.match?(~r/^##\s\d+\s\w+$/, str) ->
+        parse_day_string(str)
 
-      %{"category" => category, "description" => description, "time_spent" => time_spent} =
-          Regex.named_captures(
-            ~r/^\[(?<category>\w+)\]\s(?<description>.+)\s\-\s(?<time_spent>(\d{0,2}h)?\s?(\d{0,2}m)?)$/,
-            str
-          ) ->
-        %Task{category: category, description: description, time_spent: parse_time(time_spent)}
+      Regex.match?(
+        ~r/^\[(\w+)\]\s(.+)\s\-\s((\d{0,2}h)?\s?(\d{0,2}m)?)$/,
+        str
+      ) ->
+        parse_task(str)
 
       true ->
-        {:error, "wrong_entity_fomat"}
+        {:error, "wrong_entity_format", context: str}
     end
   end
 
@@ -59,7 +101,7 @@ defmodule WorkReport.MarkdownParserV2 do
     end
   end
 
-  @spec get_month_number(month_title :: String.t()) :: integer() | nil
+  @spec get_month_number(month_title :: String.t()) :: integer() | parser_error()
   def get_month_number(month_title) do
     case month_title do
       "January" -> 1
@@ -74,7 +116,7 @@ defmodule WorkReport.MarkdownParserV2 do
       "October" -> 10
       "November" -> 11
       "December" -> 12
-      _ -> raise InvalidMonthTitleError, month_title
+      _ -> {:error, "invalid_month_name", context: month_title}
     end
   end
 
@@ -121,14 +163,26 @@ defmodule WorkReport.MarkdownParserV2 do
     end
   end
 
-  @spec parse_time(String.t()) :: integer()
+  @spec parse_time(String.t()) :: integer() | parser_error()
   def parse_time(time_string) do
-    %{"hours" => hours, "minutes" => minutes} =
-      Regex.named_captures(~r/^((?<hours>\d{0,2})h)?\s?((?<minutes>\d{0,2})m)?$/, time_string)
+    case Regex.named_captures(~r/^((?<hours>\d{0,2})h)?\s?((?<minutes>\d{0,2})m)?$/, time_string) do
+      %{"hours" => hours, "minutes" => minutes} ->
+        string_to_int(hours) * @minutes_in_one_hour + string_to_int(minutes)
 
-    string_to_int(hours) * @minutes_in_one_hour + string_to_int(minutes)
+      nil ->
+        {:error, "wrong_time_string_format", context: time_string}
+    end
   end
 
+  @spec string_to_int(str :: binary() | any()) :: integer() | parser_error()
   def string_to_int(""), do: 0
-  def string_to_int(str), do: String.to_integer(str)
+
+  def string_to_int(str) when is_binary(str) do
+    case Regex.match?(~r/^\d+$/, str) do
+      true -> String.to_integer(str)
+      false -> {:error, "string_is_not_convertable_to_integer", context: str}
+    end
+  end
+
+  def string_to_int(str), do: {:error, "not_binary_argument", context: str}
 end

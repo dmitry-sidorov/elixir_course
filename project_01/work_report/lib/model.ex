@@ -31,6 +31,9 @@ defmodule WorkReport.Model do
   defmodule Day do
     @moduledoc false
 
+    require WorkReport.AccessStruct
+    use WorkReport.AccessStruct
+
     @type t() :: %__MODULE__{
             number: integer(),
             tasks: [Task.t()],
@@ -44,6 +47,10 @@ defmodule WorkReport.Model do
 
   defmodule Month do
     @moduledoc false
+
+    require WorkReport.AccessStruct
+    use WorkReport.AccessStruct
+
     @type t() :: %__MODULE__{
             days: [Day.t()],
             number: integer(),
@@ -51,9 +58,6 @@ defmodule WorkReport.Model do
           }
 
     @enforce_keys [:number, :title]
-
-    require WorkReport.AccessStruct
-    use WorkReport.AccessStruct
 
     defstruct [:number, :title, days: []]
   end
@@ -68,9 +72,6 @@ defmodule WorkReport.Model do
           }
 
     @enforce_keys [:number, :tasks, :title, :total_time_spent]
-
-    require WorkReport.AccessStruct
-    use WorkReport.AccessStruct
 
     defstruct [:number, :tasks, :title, :total_time_spent]
   end

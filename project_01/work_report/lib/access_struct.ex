@@ -5,6 +5,8 @@ defmodule WorkReport.AccessStruct do
   """
   defmacro __using__(_opts) do
     quote do
+      @behaviour Access
+
       @impl Access
       def fetch(term, key), do: Map.fetch(term, key)
 

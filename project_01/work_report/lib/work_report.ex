@@ -5,7 +5,7 @@ defmodule WorkReport do
 
   alias WorkReport.{
     Parser,
-    MarkdownParser,
+    MarkdownParserV2,
     ReportBuilder,
     ReportBuilder.MonthNotFoundError,
     ReportBuilder.DayNotFoundError,
@@ -50,7 +50,7 @@ defmodule WorkReport do
 
     result =
       try do
-        with {:ok, report_model} <- Parser.build_month_model(path, parser: MarkdownParser) do
+        with {:ok, report_model} <- Parser.build_month_model(path, parser: MarkdownParserV2) do
           report_model
           |> ReportBuilder.build_report(month, day)
           |> Formatter.print_report(formatter: TerminalFormatter)

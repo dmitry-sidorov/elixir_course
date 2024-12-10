@@ -4,42 +4,128 @@ defmodule MarkdownParserV2Test do
   alias WorkReport.MarkdownParserV2, as: MarkdownParser
   alias WorkReport.Model.{Day, Month, Task}
 
-  import TestFixtures
+  import CommonTestFixtures
+  import MarkdownParserTestFixtures
 
   describe "parse_report" do
     test "should parse single month report" do
       report = Path.expand("test/sample/single-report-1.md") |> File.read!()
 
       assert MarkdownParser.parse_report(report) ==
-               {:ok, single_model_list_fixture_1()}
+               {:ok, [single_month_fixture()]}
     end
 
     test "should parse plural month report" do
       report = Path.expand("test/sample/plural-report.md") |> File.read!()
 
       assert MarkdownParser.parse_report(report) ==
-               {:ok, TestFixtures.plural_model_list_fixture_1()}
+               {:ok, plural_month_fixture()}
+    end
+
+    test "should parse plural month report without empty lines" do
+      report = Path.expand("test/sample/plural-report-no-empty-lines.md") |> File.read!()
+
+      assert MarkdownParser.parse_report(report) ==
+               {:ok, plural_month_fixture()}
     end
   end
 
-  describe "check_string" do
+  describe "build_entity_list" do
+    test "should build month model tree with days" do
+      assert MarkdownParser.build_entity_list([
+               month_fixture(variant: 1),
+               day_fixture(variant: 1),
+               day_fixture(variant: 2),
+               month_fixture(variant: 2),
+               day_fixture(variant: 3),
+               day_fixture(variant: 4)
+             ]) == [
+               Map.put(month_fixture(variant: 1), :days, [
+                 day_fixture(variant: 1),
+                 day_fixture(variant: 2)
+               ]),
+               Map.put(month_fixture(variant: 2), :days, [
+                 day_fixture(variant: 3),
+                 day_fixture(variant: 4)
+               ])
+             ]
+    end
+
+    test "should build month model tree with days and tasks" do
+      assert MarkdownParser.build_entity_list([
+               month_fixture(variant: 1),
+               day_fixture(variant: 1),
+               task_fixture(variant: 1),
+               task_fixture(variant: 2),
+               day_fixture(variant: 2),
+               task_fixture(variant: 3),
+               task_fixture(variant: 4),
+               month_fixture(variant: 2),
+               day_fixture(variant: 3),
+               task_fixture(variant: 5),
+               task_fixture(variant: 6),
+               day_fixture(variant: 4),
+               task_fixture(variant: 7),
+               task_fixture(variant: 8)
+             ]) == plural_month_fixture()
+    end
+
+    test "should return error element for unknown entity" do
+      assert MarkdownParser.build_entity_list([
+               month_fixture(variant: 1),
+               day_fixture(variant: 1),
+               day_fixture(variant: 2),
+               "something not match"
+             ]) == [
+               Map.put(month_fixture(variant: 1), :days, [
+                 day_fixture(variant: 1),
+                 day_fixture(variant: 2)
+               ]),
+               {:error, "unprocessible_entity"}
+             ]
+    end
+  end
+
+  describe "map_entity_string" do
     test "should match month string" do
-      assert MarkdownParser.map_entity_string("# June") == %{"month_title" => "June"}
+      assert MarkdownParser.map_entity_string("# June") == %Month{
+               days: [],
+               number: 6,
+               title: "June"
+             }
     end
 
     test "should match day string" do
-      assert MarkdownParser.map_entity_string("## 5 tue") == %{
-               "day_title" => "tue",
-               "number" => "5"
+      assert MarkdownParser.map_entity_string("## 5 tue") == %Day{
+               number: 5,
+               title: "tue",
+               tasks: []
              }
     end
 
     test "should match task string" do
-      assert MarkdownParser.map_entity_string("[DEV] Review Pull Requests - 27m") == %{
-               "category" => "DEV",
-               "description" => "Review Pull Requests",
-               "time_spent" => "27m"
+      assert MarkdownParser.map_entity_string("[DEV] Review Pull Requests - 27m") == %Task{
+               category: "DEV",
+               description: "Review Pull Requests",
+               time_spent: 27
              }
+    end
+
+    test "should return an error for invalid entity format" do
+      invalid_entities = [
+        "### June",
+        "#June",
+        "January",
+        "[DEV]Review Pull Requests-27m",
+        "[DEV] Review Pull Requests - 27 minutes",
+        "## tue 5",
+        "##6fri"
+      ]
+
+      for entity <- invalid_entities do
+        assert MarkdownParser.map_entity_string(entity) ==
+                 {:error, "wrong_entity_format", context: entity}
+      end
     end
   end
 
@@ -170,6 +256,13 @@ defmodule MarkdownParserV2Test do
       assert MarkdownParser.parse_time("2h") == 120
       assert MarkdownParser.parse_time("15h") == 900
     end
+
+    test "should return an error for invalid time string" do
+      invalid_time = "some"
+
+      assert MarkdownParser.parse_time(invalid_time) ==
+               {:error, "wrong_time_string_format", context: "some"}
+    end
   end
 
   describe "string_to_int" do
@@ -183,6 +276,20 @@ defmodule MarkdownParserV2Test do
 
     test "should return 0 for an empty string" do
       assert MarkdownParser.string_to_int("") == 0
+    end
+
+    test "should return an error for not string argument" do
+      invalid_string = 42
+
+      assert MarkdownParser.string_to_int(invalid_string) ==
+               {:error, "not_binary_argument", context: invalid_string}
+    end
+
+    test "should return an error for not convertable string" do
+      invalid_string = "some"
+
+      assert MarkdownParser.string_to_int(invalid_string) ==
+               {:error, "string_is_not_convertable_to_integer", context: invalid_string}
     end
   end
 end

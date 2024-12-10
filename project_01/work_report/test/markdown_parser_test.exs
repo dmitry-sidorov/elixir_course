@@ -6,20 +6,21 @@ defmodule MarkdownParserTest do
   alias WorkReport.Model.{Day, Month, Task}
 
   import TestFixtures
+  import MarkdownParserTestFixtures
 
   describe "parse_report" do
     test "should parse single month report" do
       report = Path.expand("test/sample/single-report.md") |> File.read!()
 
       assert MarkdownParser.parse_report(report) ==
-               {:ok, single_model_list_fixture_1()}
+               {:ok, [single_month_fixture()]}
     end
 
     test "should parse plural month report" do
       report = Path.expand("test/sample/plural-report.md") |> File.read!()
 
       assert MarkdownParser.parse_report(report) ==
-               {:ok, TestFixtures.plural_model_list_fixture_1()}
+               {:ok, plural_month_fixture()}
     end
   end
 
