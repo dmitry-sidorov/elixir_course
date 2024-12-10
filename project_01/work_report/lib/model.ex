@@ -52,6 +52,9 @@ defmodule WorkReport.Model do
 
     @enforce_keys [:number, :title]
 
+    require WorkReport.AccessStruct
+    use WorkReport.AccessStruct
+
     defstruct [:number, :title, days: []]
   end
 
@@ -65,6 +68,9 @@ defmodule WorkReport.Model do
           }
 
     @enforce_keys [:number, :tasks, :title, :total_time_spent]
+
+    require WorkReport.AccessStruct
+    use WorkReport.AccessStruct
 
     defstruct [:number, :tasks, :title, :total_time_spent]
   end
