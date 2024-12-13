@@ -2,7 +2,6 @@ defmodule ReportBuilderTest do
   use ExUnit.Case
 
   alias WorkReport.ReportBuilder
-  alias WorkReport.ReportBuilder.{DayNotFoundError, MonthNotFoundError}
 
   import TestFixtures
 
@@ -23,15 +22,13 @@ defmodule ReportBuilderTest do
     end
 
     test "should raise an error for wrong month number" do
-      assert_raise MonthNotFoundError, "month 2 not found", fn ->
-        ReportBuilder.build_report(single_model_list_fixture_2(), 2, 3)
-      end
+      assert ReportBuilder.build_report(single_model_list_fixture_2(), 2, 3) ==
+               {:error, "month 2 not found"}
     end
 
     test "should raise an error for wrong day number" do
-      assert_raise DayNotFoundError, "day 22 not found", fn ->
-        ReportBuilder.build_report(single_model_list_fixture_2(), 1, 22)
-      end
+      assert ReportBuilder.build_report(single_model_list_fixture_2(), 1, 22) ==
+               {:error, "day 22 not found"}
     end
   end
 end

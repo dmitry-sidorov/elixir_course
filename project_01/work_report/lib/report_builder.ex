@@ -5,46 +5,39 @@ defmodule WorkReport.ReportBuilder do
 
   alias WorkReport.Model.{CategoryReport, Day, DayReport, Month, MonthReport, Task, Report}
 
-  defmodule MonthNotFoundError do
-    defexception [:message]
-
-    @impl true
-    def exception(month_number) do
-      %MonthNotFoundError{message: "month #{inspect(month_number)} not found"}
-    end
-  end
-
-  defmodule DayNotFoundError do
-    defexception [:message]
-
-    @impl true
-    def exception(day_number) do
-      %DayNotFoundError{message: "day #{inspect(day_number)} not found"}
-    end
-  end
+  @type report_builder_error :: {:error, String.t()}
 
   @spec build_report(
           month_list :: [Month.t()],
           month_number :: integer(),
           day_number :: integer()
         ) ::
-          [Report.t()]
+          [Report.t()] | report_builder_error()
   def build_report(month_list, month_number, day_number) do
-    case Enum.find(month_list, fn %Month{number: number} -> number == month_number end) do
-      nil ->
-        raise MonthNotFoundError, month_number
+    report_list =
+      case Enum.find(month_list, fn %Month{number: number} -> number == month_number end) do
+        nil ->
+          [{:error, "month #{inspect(month_number)} not found"}]
 
-      %Month{} = month ->
-        [build_day_report(month, day_number), build_month_report(month)]
+        %Month{} = month ->
+          [build_day_report(month, day_number), build_month_report(month)]
+      end
+
+    case Enum.find(report_list, &error?/1) do
+      nil -> report_list
+      error -> error
     end
   end
 
+  def error?({:error, _} = element) when is_tuple(element), do: true
+  def error?(element) when is_map(element), do: false
+
   @spec build_day_report(month :: Month.t(), day_number :: integer()) ::
-          DayReport.t() | {:error, String.t()}
+          DayReport.t() | report_builder_error()
   def build_day_report(%Month{days: days}, day_number) do
     case Enum.find(days, fn %Day{number: number} -> number == day_number end) do
       nil ->
-        raise DayNotFoundError, day_number
+        {:error, "day #{inspect(day_number)} not found"}
 
       %Day{number: number, tasks: tasks, title: title} ->
         %DayReport{
