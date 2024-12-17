@@ -5,6 +5,10 @@ defmodule WorkReport.Model do
 
   defmodule CategoryReport do
     @moduledoc false
+
+    require WorkReport.AccessStruct
+    use WorkReport.AccessStruct
+
     @type t() :: %__MODULE__{
             title: String.t(),
             time_spent: integer()

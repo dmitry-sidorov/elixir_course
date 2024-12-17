@@ -4,6 +4,7 @@ defmodule ReportBuilderTest do
   alias WorkReport.ReportBuilder
 
   import TestFixtures
+  import CommonTestFixtures
 
   describe "build_report" do
     test "should build single month report" do
@@ -31,6 +32,34 @@ defmodule ReportBuilderTest do
     test "should raise an error for wrong day and month number" do
       assert ReportBuilder.build_report(single_model_list_fixture_2(), 2, 5) ==
                {:error, "month 2 not found"}
+    end
+  end
+
+  describe "check_task" do
+    test "should return valid task" do
+      task = task_fixture(variant: 1)
+      assert ReportBuilder.check_task(task) == task
+    end
+
+    test "should return an error for invalid task" do
+      invalid_category = "not_exist"
+      task = Map.put(task_fixture(variant: 1), :category, invalid_category)
+
+      assert ReportBuilder.check_task(task) ==
+               {:error,
+                context:
+                  "Invalid category not_exist. Task category should be from the list: COMM, DEV, OPS, DOC, WS, EDU"}
+    end
+  end
+
+  describe "build_month_report" do
+    test "should build report for valid input" do
+      assert ReportBuilder.build_month_report(month_model_fixture_3()) == month_report_fixture_1()
+    end
+
+    test "should return error for invalid month model" do
+      assert ReportBuilder.build_month_report(month_model_fixture_3(valid_task_category?: false)) ==
+               {:error, "some"}
     end
   end
 end

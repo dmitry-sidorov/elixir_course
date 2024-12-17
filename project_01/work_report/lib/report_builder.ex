@@ -7,6 +7,15 @@ defmodule WorkReport.ReportBuilder do
 
   @type report_builder_error :: {:error, String.t()}
 
+  @task_categories [
+    "COMM",
+    "DEV",
+    "OPS",
+    "DOC",
+    "WS",
+    "EDU"
+  ]
+
   def build_report({:error, _message} = error, _month_number, _day_number), do: error
 
   @spec build_report(
@@ -58,38 +67,46 @@ defmodule WorkReport.ReportBuilder do
     |> Enum.sum()
   end
 
+  @spec check_task(task :: Task.t()) :: Task.t() | report_builder_error()
+  def check_task(%Task{category: category} = task) when category in @task_categories, do: task
+
+  def check_task(task),
+    do:
+      {:error,
+       context:
+         "Invalid category #{task.category}. Task category should be from the list: #{Enum.join(@task_categories, ", ")}"}
+
   @spec build_month_report(month :: Month.t()) :: MonthReport.t()
   def build_month_report(%Month{days: days, number: number, title: title}) do
     days_spent = length(days)
 
-    tasks =
-      days
-      |> Enum.flat_map(fn %Day{tasks: tasks} -> tasks end)
+    # with raw_tasks <- Enum.flat_map(days, fn %Day{tasks: tasks} -> tasks end),
+    #      validated_tasks <- Enum.map(raw_tasks, &check_task/1),
+    #      tasks <- Enum.all?(validated_tasks, fn %Task{} = task -> task end) do
+
+    tasks = Enum.flat_map(days, fn %Day{tasks: tasks} -> tasks end)
 
     total_time_spent = count_tasks_time_spent(tasks)
 
     avg_time_spent = trunc(total_time_spent / days_spent)
 
+    initial_categories_report_list =
+      Enum.map(@task_categories, fn category ->
+        %CategoryReport{title: category, time_spent: 0}
+      end)
+
     categories =
       tasks
       |> Enum.reduce(
-        [
-          {:COMM, 0},
-          {:DEV, 0},
-          {:OPS, 0},
-          {:DOC, 0},
-          {:WS, 0},
-          {:EDU, 0}
-        ],
+        initial_categories_report_list,
         fn %Task{category: category, time_spent: time_spent}, acc ->
-          Keyword.update(acc, String.to_atom(category), time_spent, fn count ->
-            count + time_spent
-          end)
+          update_in(
+            acc,
+            [Access.filter(fn report -> report.title == category end), :time_spent],
+            &(&1 + time_spent)
+          )
         end
       )
-      |> Enum.map(fn {category, time_spent_value} ->
-        %CategoryReport{title: Atom.to_string(category), time_spent: time_spent_value}
-      end)
 
     %MonthReport{
       avg_time_spent: avg_time_spent,
@@ -99,5 +116,9 @@ defmodule WorkReport.ReportBuilder do
       title: title,
       total_time_spent: total_time_spent
     }
+
+    # else
+    #   {:error, _context} = error -> error
+    # end
   end
 end
