@@ -5,10 +5,10 @@ defmodule WorkReport.Formatter do
   alias WorkReport.Model.Report
 
   @callback format_report_list(report_list :: [Report.t()], opts :: Keyword.t()) ::
-              binary()
+              {:ok, binary()}
 
   @spec print_report(report_list :: [Report.t()], opts :: Keyword.t()) ::
-          binary()
+          {:ok, binary()}
   def print_report(report_list, opts) do
     {formatter, opts} = Keyword.pop(opts, :formatter)
 

@@ -7,6 +7,8 @@ defmodule WorkReport.ReportBuilder do
 
   @type report_builder_error :: {:error, String.t()}
 
+  def build_report({:error, _message} = error, _month_number, _day_number), do: error
+
   @spec build_report(
           month_list :: [Month.t()],
           month_number :: integer(),
@@ -24,7 +26,7 @@ defmodule WorkReport.ReportBuilder do
       end
 
     case Enum.find(report_list, &error?/1) do
-      nil -> report_list
+      nil -> {:ok, report_list}
       error -> error
     end
   end
