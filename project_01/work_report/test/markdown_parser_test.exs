@@ -5,7 +5,6 @@ defmodule MarkdownParserTest do
   alias WorkReport.MarkdownParser.{InvalidMonthTitleError, InvalidDayStringError}
   alias WorkReport.Model.{Day, Month, Task}
 
-  import TestFixtures
   import MarkdownParserTestFixtures
 
   describe "parse_report" do
