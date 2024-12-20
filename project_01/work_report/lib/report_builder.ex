@@ -16,6 +16,10 @@ defmodule WorkReport.ReportBuilder do
     "EDU"
   ]
 
+  def task_categories do
+    @task_categories
+  end
+
   def build_report({:error, _message} = error, _month_number, _day_number), do: error
 
   @spec build_report(
@@ -67,58 +71,66 @@ defmodule WorkReport.ReportBuilder do
     |> Enum.sum()
   end
 
-  @spec check_task(task :: Task.t()) :: Task.t() | report_builder_error()
-  def check_task(%Task{category: category} = task) when category in @task_categories, do: task
+  @spec task_valid?(task :: Task.t()) :: Task.t() | report_builder_error()
+  def task_valid?(%Task{category: category} = task) when category in @task_categories, do: task
 
-  def check_task(task),
+  def task_valid?(task),
     do:
       {:error,
        context:
          "Invalid category #{task.category}. Task category should be from the list: #{Enum.join(@task_categories, ", ")}"}
 
-  @spec build_month_report(month :: Month.t()) :: MonthReport.t()
+  @spec validate_tasks(tasks :: [Task.t()]) :: {:ok, [Task.t()]} | report_builder_error()
+  def validate_tasks(tasks) do
+    has_error? =
+      with validated_tasks <- Enum.map(tasks, &task_valid?/1),
+           nil <- Enum.find(validated_tasks, &error?/1) do
+        {:ok, tasks}
+      else
+        error -> error
+      end
+  end
+
+  @spec build_month_report(month :: Month.t()) :: MonthReport.t() | report_builder_error()
+  def build_month_report({:error, _message} = error), do: error
+
   def build_month_report(%Month{days: days, number: number, title: title}) do
     days_spent = length(days)
 
-    # with raw_tasks <- Enum.flat_map(days, fn %Day{tasks: tasks} -> tasks end),
-    #      validated_tasks <- Enum.map(raw_tasks, &check_task/1),
-    #      tasks <- Enum.all?(validated_tasks, fn %Task{} = task -> task end) do
+    with raw_tasks <- Enum.flat_map(days, fn %Day{tasks: tasks} -> tasks end),
+         {:ok, tasks} <- validate_tasks(raw_tasks) do
+      total_time_spent = count_tasks_time_spent(tasks)
 
-    tasks = Enum.flat_map(days, fn %Day{tasks: tasks} -> tasks end)
+      avg_time_spent = trunc(total_time_spent / days_spent)
 
-    total_time_spent = count_tasks_time_spent(tasks)
+      initial_categories_report_list =
+        Enum.map(@task_categories, fn category ->
+          %CategoryReport{title: category, time_spent: 0}
+        end)
 
-    avg_time_spent = trunc(total_time_spent / days_spent)
+      categories =
+        tasks
+        |> Enum.reduce(
+          initial_categories_report_list,
+          fn %Task{category: category, time_spent: time_spent}, acc ->
+            update_in(
+              acc,
+              [Access.filter(fn report -> report.title == category end), :time_spent],
+              &(&1 + time_spent)
+            )
+          end
+        )
 
-    initial_categories_report_list =
-      Enum.map(@task_categories, fn category ->
-        %CategoryReport{title: category, time_spent: 0}
-      end)
-
-    categories =
-      tasks
-      |> Enum.reduce(
-        initial_categories_report_list,
-        fn %Task{category: category, time_spent: time_spent}, acc ->
-          update_in(
-            acc,
-            [Access.filter(fn report -> report.title == category end), :time_spent],
-            &(&1 + time_spent)
-          )
-        end
-      )
-
-    %MonthReport{
-      avg_time_spent: avg_time_spent,
-      categories: categories,
-      days_spent: days_spent,
-      number: number,
-      title: title,
-      total_time_spent: total_time_spent
-    }
-
-    # else
-    #   {:error, _context} = error -> error
-    # end
+      %MonthReport{
+        avg_time_spent: avg_time_spent,
+        categories: categories,
+        days_spent: days_spent,
+        number: number,
+        title: title,
+        total_time_spent: total_time_spent
+      }
+    else
+      {:error, _message} = error -> error
+    end
   end
 end
