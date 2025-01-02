@@ -143,7 +143,7 @@ defmodule WorkReport.MarkdownParserV2 do
 
   @spec parse_task_list(day :: Day.t(), task_string_list :: [binary()]) :: Day.t()
   def parse_task_list(day, task_string_list) do
-    tasks = Enum.map(task_string_list, &parse_task/1) |> Enum.reject(&is_nil/1)
+    tasks = Enum.map(task_string_list, &parse_task/1)
 
     Map.put(day, :tasks, tasks)
   end
