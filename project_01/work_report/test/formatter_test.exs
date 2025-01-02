@@ -1,23 +1,18 @@
 defmodule FormatterTest do
   use ExUnit.Case
+  import TestFixtures
 
-  alias WorkReport.Formatter
+  alias WorkReport.{Formatter, TerminalFormatter}
 
-  test "format time" do
-    assert Formatter.format_time(0) == "0"
-    assert Formatter.format_time(1) == "1m"
-    assert Formatter.format_time(12) == "12m"
-    assert Formatter.format_time(42) == "42m"
-    assert Formatter.format_time(59) == "59m"
-    assert Formatter.format_time(60) == "1h"
-    assert Formatter.format_time(61) == "1h 1m"
-    assert Formatter.format_time(65) == "1h 5m"
-    assert Formatter.format_time(90) == "1h 30m"
-    assert Formatter.format_time(140) == "2h 20m"
-    assert Formatter.format_time(150) == "2h 30m"
-    assert Formatter.format_time(180) == "3h"
-    assert Formatter.format_time(600) == "10h"
-    assert Formatter.format_time(615) == "10h 15m"
+  defp expected_report do
+    "Day: 3 mon\n - DEV: Implement search - 4h\n - COMM: Daily Meeting with indians - 20m\n - DEV: Implement endoint for auth - 1h 40m\n - DOC: Read API docs and manuals - 1h\n   Total: 7h\n\nMonth: January\n - COMM: 35m\n - DEV: 8h 30m\n - OPS: 0\n - DOC: 1h\n - WS: 0\n - EDU: 0\n   Total: 10h 5m, Days: 2, Avg: 5h 2m\n"
   end
 
+  describe "formatter interface" do
+    test "print_report should print correct report" do
+      assert Formatter.print_report(single_model_list_report_fixture_2_m1_d3(),
+               formatter: TerminalFormatter
+             ) == {:ok, expected_report()}
+    end
+  end
 end
