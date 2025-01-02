@@ -82,7 +82,6 @@ defmodule WorkReport.ReportBuilder do
 
   @spec validate_tasks(tasks :: [Task.t()]) :: {:ok, [Task.t()]} | report_builder_error()
   def validate_tasks(tasks) do
-    has_error? =
       with validated_tasks <- Enum.map(tasks, &task_valid?/1),
            nil <- Enum.find(validated_tasks, &error?/1) do
         {:ok, tasks}

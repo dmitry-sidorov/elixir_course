@@ -28,7 +28,7 @@ defmodule WorkReport.MarkdownParserV2 do
   @spec build_entity_list(
           entities :: [entity()],
           acc :: [Month.t()],
-          poiter :: %{day: integer(), month: integer()}
+          pointer :: %{day: integer(), month: integer()}
         ) :: [Month.t()]
   def build_entity_list([], acc, _pointer), do: Enum.reverse(acc)
 
