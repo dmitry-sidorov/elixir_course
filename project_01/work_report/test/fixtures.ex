@@ -94,7 +94,15 @@ defmodule TestFixtures do
     }
   end
 
-  defp month_model_fixture_3 do
+  def month_model_fixture_3(opts \\ []) do
+    valid_task_category? = Keyword.get(opts, :valid_task_category?, true)
+
+    category =
+      case valid_task_category? do
+        true -> "DEV"
+        false -> "SOME"
+      end
+
     %Month{
       number: 1,
       title: "January",
@@ -106,7 +114,7 @@ defmodule TestFixtures do
             %Task{
               description: "Implement search",
               time_spent: 240,
-              category: "DEV"
+              category: category
             },
             %Task{
               description: "Daily Meeting with indians",
@@ -155,7 +163,7 @@ defmodule TestFixtures do
     }
   end
 
-  defp month_report_fixture_1 do
+  def month_report_fixture_1 do
     %MonthReport{
       avg_time_spent: 302,
       categories: [

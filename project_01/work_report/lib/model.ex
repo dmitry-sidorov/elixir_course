@@ -5,6 +5,10 @@ defmodule WorkReport.Model do
 
   defmodule CategoryReport do
     @moduledoc false
+
+    require WorkReport.AccessStruct
+    use WorkReport.AccessStruct
+
     @type t() :: %__MODULE__{
             title: String.t(),
             time_spent: integer()
@@ -31,6 +35,9 @@ defmodule WorkReport.Model do
   defmodule Day do
     @moduledoc false
 
+    require WorkReport.AccessStruct
+    use WorkReport.AccessStruct
+
     @type t() :: %__MODULE__{
             number: integer(),
             tasks: [Task.t()],
@@ -44,6 +51,10 @@ defmodule WorkReport.Model do
 
   defmodule Month do
     @moduledoc false
+
+    require WorkReport.AccessStruct
+    use WorkReport.AccessStruct
+
     @type t() :: %__MODULE__{
             days: [Day.t()],
             number: integer(),

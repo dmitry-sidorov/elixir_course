@@ -7,11 +7,16 @@ defmodule WorkReport.Parser do
   @callback parse_report(report :: binary(), opts :: Keyword.t()) ::
               {:ok, [Month.t()]} | {:error, String.t()}
 
-  @spec build_month_model(report_file_path :: binary(), opts :: Keyword.t()) :: {:ok, [Month.t()]}
+  @spec build_month_model(report_file_path :: binary(), opts :: Keyword.t()) ::
+          {:ok, [Month.t()]} | {:error, String.t()}
   def build_month_model(report_file_path, opts) do
-    {parser, opts} = Keyword.pop(opts, :parser)
-    file = File.read!(report_file_path)
-
-    parser.parse_report(file, opts)
+    with {parser, opts} <- Keyword.pop(opts, :parser),
+         {:ok, file} <- File.read(report_file_path),
+         {:ok, result} <- parser.parse_report(file, opts) do
+      {:ok, result}
+    else
+      {:error, :enoent} -> {:error, "file-does-not-exist"}
+      error -> error
+    end
   end
 end

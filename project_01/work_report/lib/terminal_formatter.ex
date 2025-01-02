@@ -17,8 +17,10 @@ defmodule WorkReport.TerminalFormatter do
 
   @impl Formatter
   def format_report_list(report_list, _opts \\ []) do
-    (report_list |> Stream.map(&format_report/1) |> Enum.join("\n\n")) <> "\n"
+    {:ok, (report_list |> Stream.map(&format_report/1) |> Enum.join("\n\n")) <> "\n"}
   end
+
+  def format_report({:error, _message} = error), do: error
 
   @spec format_report(report :: MonthReport.t()) :: binary()
   def format_report(%MonthReport{
